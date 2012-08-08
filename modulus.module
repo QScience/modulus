@@ -1,0 +1,73 @@
+<?php
+
+module_load_include('inc', 'api');
+module_load_include('module', 'update');
+module_load_include('inc', 'update', 'update.manager');
+module_load_include('inc', 'update', 'update.authorize');
+include_once 'includes/module.inc';
+
+module_load_include('inc', 'modulus', 'theme');
+module_load_include('inc', 'modulus', 'modulus');
+
+/**
+ * Implementation of hook_perm().
+ */
+function modulus_perm() {
+  return array('modulus access');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function modulus_menu() {
+  $items = array();
+
+  $items['admin/modulus'] = array(
+    'title' => 'Modulus',
+    'description' => 'Modulus.',
+    'page callback' => 'modulus_page',
+    'page arguments' => array(array('views', 'panels', 'cvs_deploy', 'twitter'), '7.x'),
+    'access arguments' => array('modulus access'),
+  );
+  $items['admin/modulus/settings'] = array(
+    'title' => 'Modulus',
+    'description' => 'Modulus.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('modulus_settings'),
+    'access arguments' => array('modulus access'),
+  );
+
+  return $items;
+}
+
+/**
+ * Menu callback for the macro settings form.
+ */
+function modulus_settings() {
+  $form['general'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Modulus settings'),
+    '#collapsible' => TRUE,
+  );
+    $form['general']['modulus_dir'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default Directory for downloads (modules, themes, etc.)'),
+    '#description' => t('Value must be a valid stream wrapper. E.g. temporary://mydir/ or public://mydir/. If empty %default will be used', array('%default' => _update_manager_extract_directory())),
+    '#default_value' => variable_get('modulus_dir', _update_manager_extract_directory()),
+  );
+  return system_settings_form($form);
+}
+
+function modulus_downloads_directory($create = TRUE) {
+  $directory = &drupal_static(__FUNCTION__, '');
+  if (empty($directory)) {
+		$directory = variable_get('modulus_dir', 'sites/default/files/modulus');
+		
+    if ($create && !file_exists($directory)) {
+      mkdir($directory);
+    }
+  }
+  // remove trailing slash
+  $directory = rtrim($directory, '/\\');
+  return $directory;
+}

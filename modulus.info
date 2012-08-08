@@ -1,0 +1,4 @@
+name = Modulus
+description = "Modules manager for deployment settings. Not recommended for production web sites"
+package = Development
+core = 7.x
