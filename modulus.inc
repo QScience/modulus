@@ -309,6 +309,117 @@ function modulus_batch_module_enable($module_list, $enable_dependencies, &$conte
   return;
 }
 
+
+function modulus_build_dep_tree($module, $version, $drupal_version) {
+	$extract_directory = _update_manager_extract_directory();
+	
+	$deps = array();
+	
+	$modules = system_rebuild_module_data();
+	if (isset($modules[$module]))
+	
+	// Look for the info file.
+    $module->info = drupal_parse_info_file(dirname($module->uri) . '/' . $module->name . '.info');
+    
+  return $deps;
+}
+
+function _modulus_find_most_recent_published_release($xml) {
+	$releases = $xml->xpath("/project/releases/release");
+	$found = FALSE;
+	foreach($releases as $release) {
+		if (!$release->xpath('status') === 'published') {
+			continue;
+		}
+		if (!$found || $release->xpath('date') > $found->xpath('date')) {
+			$found = $release;
+		}
+	}
+	return $found;
+}
+
+function modulus_download_module($module, $core, $release = NULL, $verbose = TRUE) {
+
+	$xml = modulus_get_release_history_xml($module, $core);
+  if (is_null($xml)) {
+  	if ($verbose) drupal_set_message(t('!project: Error while processing release history', array('!project' => $module)), 'error');	
+    return FALSE;
+	}
+
+  if (!is_null($release)) {
+  	$release = $xml->xpath("/project/releases/release[version='" . $release . "']");	
+	}
+	else {
+  	 // if no release was specified we take the most recent one
+  	$release = _modulus_find_most_recent_published_release($xml);
+	}
+  	
+ 	if (!$release) {
+ 		if ($verbose) drupal_set_message(t('!project: No valid release found.', array('!project' => $module)), 'error');	
+    return FALSE;
+ 	}
+  
+ 	
+	$url = $release->download_link;
+ 	
+  return modulus_download_and_extract($module, $url);
+
+}
+
+function modulus_download_and_extract($module, $url, $context = NULL, $verbose = TRUE) {
+	if (is_null($context)) {
+		$context = array();
+	 	$context['sandbox']['started'] = TRUE;
+	}
+ 	
+	update_manager_batch_project_get($module, $url, $context);
+      
+  //$extract_directory = modulus_downloads_directory(TRUE);
+  $extract_directory = _update_manager_extract_directory();
+  $project_real_location = $extract_directory . '/' . $module;
+        
+  // taken from update.manager.inc
+  // update_manager_install_form_submit() 
+  // check updater doc: http://api.drupal.org/api/drupal/includes!updater.inc/class/Updater/7
+      
+      
+  // Make sure the Updater registry is loaded.
+  drupal_get_updaters(); // TODO: create own module updater
+    
+  // TODO: more informative error messages
+  // TODO: error handling
+  $project_location = $extract_directory . '/' . $module;
+      
+  try {
+  	$updater = Updater::factory($project_location);
+	}
+  catch (Exception $e) {
+  	if ($verbose) drupal_set_message('Exception catched: ' . $e->getMessage(), 'error');
+		return FALSE;
+	}
+    
+	try {
+  	$project_title = Updater::getProjectTitle($project_location);
+	}
+  catch (Exception $e) {
+  	if ($verbose) drupal_set_message('Exception catched: ' . $e->getMessage(), 'error');
+    return FALSE;
+	}
+    
+	if (!$project_title) {
+  	if ($verbose) drupal_set_message(t('Unable to determine %project name.', array('%project' => $project)), 'error');
+    return FALSE;
+	}
+  debug('SUCCESS');  
+  return TRUE;    
+}
+
+function modulus_move_project_to() {
+	file_unmanaged_copy($project_real_location,  drupal_realpath('public://') . "/modulus");
+  debug(modulus_downloads_directory() . '/' . $module);
+}
+
+
  /**
  * Download the release history xml for the specified request.
  * based on drush's "_drush_pm_get_release_history_xml($request)" function
