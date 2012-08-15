@@ -1,12 +1,14 @@
 <?php
 
-/*
+/**
+ * Displays the form to select which release of a module to select
+ * 
  * $modules is an array of tuples (module name, drupal version)
  */
- function modulus_dlenable_modules_form($form, &$form_state, $modules, $modules_to_enable, $enable_dependencies) {  
+function modulus_dlenable_modules_form($form, &$form_state, $modules, $modules_to_enable, $enable_dependencies) {  
 
  	
-  $form['#tree'] = TRUE;
+	$form['#tree'] = TRUE;
   
   $form['all'] = array (
     '#type' => 'fieldset',
@@ -115,9 +117,7 @@ function modulus_dlenable_modules_form_submit($form, &$form_state) {
     $form_state['values']['all'] = array();
   }
   
-  $status = array();
-  $projects = array();
-  
+  $projects = array(); 
   foreach($form_state['values']['all'] as $module => $info) {
   	//echo $module;
     
@@ -131,30 +131,38 @@ function modulus_dlenable_modules_form_submit($form, &$form_state) {
 	  // if none was chosen, do nothing
 	  $release = $form_state['values']['all'][$module]['radios'] - 1;
     
-		$status[$module] = modulus_download_module($module, $core, $release = NULL, $verbose = TRUE);
+		$success = modulus_download_module($module, $core, $release = NULL, $verbose = TRUE);
+		
+		if ($success) {
+			$real_path_project = drupal_realpath(modulus_extract_directory($module));
+			$projects[$module] = array(
+				'project' => $module,
+     		'updater_name' => 'ModuleUpdater',
+      	'local_url' => $real_path_project,
+			);
+		}
+
   }
   
-  // Make sure the Updater registry is loaded.
-  drupal_get_updaters(); // TODO: create own module updater
+  // Make sure the Updater registry is loaded
+  drupal_get_updaters(); 
   module_load_include('inc', 'update', 'update.authorize');
   $filetransfer = new FileTransferLocal(DRUPAL_ROOT);
+  //system_authorized_init('modulus_batch', drupal_get_path('module', 'modulus') . '/modulus.modules', array($batch), t('Installing modules'));
+   
+  //update_authorize_run_update($filetransfer, $projects);
   
-  // update_authorize_run_update($filetransfer, $projects);
   
   
-  foreach($status as $module => $status) {
-  	if (!$status) continue;
+  foreach ($projects as $module) {
+
   	//$extract_directory = modulus_downloads_directory(TRUE);
- 	 	$project_location = modulus_extract_directory($module);
+ 	 	$project_location = modulus_extract_directory($module['project']);
         
   	// taken from update.manager.inc
   	// update_manager_install_form_submit() 
   	// check updater doc: http://api.drupal.org/api/drupal/includes!updater.inc/class/Updater/7
       
-  	
-    
-  	// TODO: more informative error messages
-  	// TODO: error handling
   
 		try {
 	  	$updater = Updater::factory($project_location);
@@ -176,47 +184,35 @@ function modulus_dlenable_modules_form_submit($form, &$form_state) {
 	  	if ($verbose) drupal_set_message(t('Unable to determine %project name.', array('%project' => $project)), 'error');
 	    return FALSE;
 		}
-		
-		
-		// If the owner of the directory we extracted is the same as the
-    // owner of our configuration directory (e.g. sites/default) where we're
-    // trying to install the code, there's no need to prompt for FTP/SSH
-    // credentials. Instead, we instantiate a FileTransferLocal and invoke
-    // update_authorize_run_install() directly.
-    $arguments = array (
-      'project' => $project_title,
-      'updater_name' => get_class($updater),
-      'local_url' => $project_location,
-    );
 
-
-      
+		$real_project_location = drupal_realpath($project_location);
     // call_user_func_array('update_authorize_run_install_modified', array_merge(array($filetransfer), $arguments));
     $operations[] = array(
     	'update_authorize_batch_copy_project', array(
     		$project_title,
       	get_class($updater),
-        $project_location, // local url
+        $real_project_location, // local url
         $filetransfer,
 			),
     );
       
     // check if we have enough rights - otherwise ask for authorization
-    if (!fileowner($project_location) == fileowner(conf_path())) {
+    if (!fileowner($real_project_location) == fileowner(conf_path())) {
 	  	// Otherwise, go through the regular workflow to prompt for FTP/SSH
 	    // credentials and invoke update_authorize_run_install() indirectly with
 	    // whatever FileTransfer object authorize.php creates for us.
       $authorize = TRUE;
-			/*system_authorized_init('update_authorize_run_install', drupal_get_path('module', 'update') . '/update.authorize.inc', $arguments, t('Update manager'));
-      $form_state['redirect'] = system_authorized_get_url();
-      return;
-       */
+			//system_authorized_init('update_authorize_run_install', drupal_get_path('module', 'update') . '/update.authorize.inc', $arguments, t('Update manager'));
+      //$form_state['redirect'] = system_authorized_get_url();
+      //return;
+       
     }
   }
   
-  if (empty($operations)) {
-  	return;
-  }
+  
+  //if (empty($operations)) {
+  //	return;
+  //}
   
 
   
@@ -231,15 +227,12 @@ function modulus_dlenable_modules_form_submit($form, &$form_state) {
     }
     $enable_dependencies = $form_state['values']['modules_to_enable']['enable_dependencies'];
   }
+  */
+  $operations[] = array('modulus_batch_module_enable');
+    
   
-//  $operations[] = array(
-//    'modulus_batch_module_enable',
-//     array($modules_to_enable, $enable_dependencies)
-//  );
-    */
-  
-  debug($operations);
-  return;
+  //debug($operations);
+  //return;
   
   // create batch with gathered operations and start it
   $batch = array(
@@ -280,26 +273,15 @@ function modulus_batch($filetransfer, $batch) {
   system_authorized_batch_process();
 }
 
-function modulus_callback($filetransfer, $arguments_array) {
-  foreach($arguments_array as $arguments) {
-    update_authorize_run_install($filetransfer, $arguments);
-  }
-}
 /**
  * module_enable wrapper for batch
  */
 function modulus_batch_module_enable($module_list, $enable_dependencies, &$context) {
 
-	if (!isset($context['sandbox']['progress'])) {
-    $context['sandbox']['progress'] = 0;
-  }
-  
-	watchdog('modulus_enable', print_r($batch, true), array(), WATCHDOG_NOTICE);
-	  
   $context['finished'] = 1.0;
   //include('')
   module_enable($module_list);//, $enable_dependencies);
- 	$context['results']['log']['Return'][] = array('message' =>  l('Click here to return.', 'admin/modulus/'), 'success' => 'Yuppie!');
+ 	$context['results']['log']['Return'][] = array('message' =>  l('Click here to return.', 'admin/patterns/check/' . variable_get('patterns_pid', 0)), 'success' => 'Yuppie!');
   return;
 }
 
