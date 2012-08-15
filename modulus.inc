@@ -311,6 +311,32 @@ function modulus_batch_module_enable($module_list, $enable_dependencies, &$conte
 
 ////////////////////////////////////////
 
+function modulus_is_module_available($module = NULL, $list = NULL) {
+  if (is_null($module)) return FALSE;
+  $modules = (is_null($list)) ? system_rebuild_module_data() : $list;
+  return (isset($modules[$module])) ? TRUE : FALSE;
+}
+
+function modulus_is_module_enabled($module = NULL, $list = NULL) {
+  if (is_null($module)) return FALSE;
+  $modules = (is_null($list)) ? module_list() : $list;
+  return isset($modules[$module]) ? TRUE : FALSE;
+}
+
+function modulus_module_state($module) {
+	if (modulus_is_module_enabled($module)) {
+		return 'enabled';
+	}
+	if (modulus_is_module_available($module)) {
+		return 'available';
+	}
+	return 'missing';
+}
+
+function modulus_dep_report($module, $core, $release) {
+	$dep_tree = modulus_build_dep_tree($module, $core, $release);
+}
+
 function modulus_build_dep_tree($module, $core, $release = NULL, $deps = array()) {
 	// TODO: how to find the current core?
 	
@@ -319,7 +345,9 @@ function modulus_build_dep_tree($module, $core, $release = NULL, $deps = array()
 		$current_deps = $modules[$module]->info['dependencies']; 
 		if (!empty($current_deps)) {
 			foreach ($current_deps as $d) {
-				$deps[] = array($d => modulus_build_dep_tree($d, $core, NULL));
+				$deps[$d] = array();
+				$deps[$d]['state'] = modulus_module_state($module);
+				$deps[$d]['dependencies'] = modulus_build_dep_tree($d, $core, NULL);
 			}	
 		}
 	}
@@ -335,7 +363,9 @@ function modulus_build_dep_tree_remote($module, $core, $release = NULL, $deps = 
 	$current_deps = @$info['dependencies'];
 	if (!empty($current_deps)) {
 		foreach ($current_deps as $d) {
-			$deps[] = array($d => modulus_build_dep_tree($d, $core, $release));
+			$deps[$d] = array();
+			$deps[$d]['state'] = modulus_module_state($module);
+			$deps[$d]['dependencies'] = modulus_build_dep_tree($d, $core, $release);
 		}	
 	}
 	return $deps;
