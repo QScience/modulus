@@ -309,19 +309,42 @@ function modulus_batch_module_enable($module_list, $enable_dependencies, &$conte
   return;
 }
 
+////////////////////////////////////////
 
-function modulus_build_dep_tree($module, $version, $drupal_version) {
-	$extract_directory = _update_manager_extract_directory();
-	
-	$deps = array();
+function modulus_build_dep_tree($module, $core, $release = NULL, $deps = array()) {
+	// TODO: how to find the current core?
 	
 	$modules = system_rebuild_module_data();
-	if (isset($modules[$module]))
-	
-	// Look for the info file.
-    $module->info = drupal_parse_info_file(dirname($module->uri) . '/' . $module->name . '.info');
-    
+	if (isset($modules[$module])) {
+		$current_deps = $modules[$module]->info['dependencies']; 
+		if (!empty($current_deps)) {
+			foreach ($current_deps as $d) {
+				$deps[] = array($d => modulus_build_dep_tree($d, $core, NULL));
+			}	
+		}
+	}
+	else {
+		modulus_build_dep_tree_remote($module, $core);
+	}
   return $deps;
+}
+
+function modulus_build_dep_tree_remote($module, $core, $release = NULL, $deps = array()) {
+	if (!modulus_download_module($module, $core, $release)) return FALSE;
+	$info = modulus_get_info_from_extracted_project($module);
+	$current_deps = @$info['dependencies'];
+	if (!empty($current_deps)) {
+		foreach ($current_deps as $d) {
+			$deps[] = array($d => modulus_build_dep_tree_remote($d, $core, $release));
+		}	
+	}
+	return $deps;
+}
+
+
+function modulus_get_info_from_extracted_project($module) {
+	$dir = modulus_extract_directory($module);
+  return drupal_parse_info_file($dir . '/' . $module. '.info');
 }
 
 function _modulus_find_most_recent_published_release($xml) {
@@ -362,7 +385,7 @@ function modulus_download_module($module, $core, $release = NULL, $verbose = TRU
  	
 	$url = $release->download_link;
  	
-  return modulus_download_and_extract($module, $url);
+  return _modulus_download_and_extract($module, $url);
 
 }
 
@@ -371,7 +394,7 @@ function modulus_extract_directory($module = NULL) {
 	return (is_null($module)) ? $extract_directory : $extract_directory . '/' . $module; 
 }
 
-function modulus_download_and_extract($module, $url, $context = NULL, $verbose = TRUE) {
+function _modulus_download_and_extract($module, $url, $context = NULL, $verbose = TRUE) {
 	if (is_null($context)) {
 		$context = array();
 	 	$context['sandbox']['started'] = TRUE;
