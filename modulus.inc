@@ -111,127 +111,116 @@ function modulus_dlenable_modules_form_submit($form, &$form_state) {
   $authorize = FALSE;
   
   //$output = array();
-  if (!isset($form_state['values']['all']))
+  if (!isset($form_state['values']['all'])) {
     $form_state['values']['all'] = array();
-    
-    foreach($form_state['values']['all'] as $module => $info) {
-    //echo $module;
-    
-    if ($module == 'submit')
-      continue;
-      
-    $drupal_version = $info['drupal_version'];
-    $xml = modulus_get_release_history_xml($module, $drupal_version);
-    if($xml == NULL) {
-      // should not happen, because it worked previously
-      drupal_set_message(t('!project: Error while processing release history', array('!project' => $name)), 'error');
-      continue;
-    }
-    $releases = $xml->xpath("/project/releases/release");
-    // if none was chosen, do nothing
-    $release = $form_state['values']['all'][$module]['radios'] - 1;
-    
-    
-    if($release >= 0) {
-      unset($context);
-      $context['sandbox']['started'] = TRUE;
-      // download and extract
-      update_manager_batch_project_get($module, $releases[$release]->download_link, $context);
-      $output[] = $context;
-      
-      //$extract_directory = modulus_downloads_directory(TRUE);
-      $extract_directory = _update_manager_extract_directory();
-      drupal_set_message($extract_directory);
-      $project_real_location = $extract_directory . '/' . $module;
-        
-      // taken from update.manager.inc
-      // update_manager_install_form_submit() 
-      // check updater doc: http://api.drupal.org/api/drupal/includes!updater.inc/class/Updater/7
-      //
-      
-      
-      // Make sure the Updater registry is loaded.
-      drupal_get_updaters(); // TODO: create own module updater
-    
-      // TODO: more informative error messages
-      // TODO: error handling
-      $project_location = $extract_directory . '/' . $module;
-      
-      try {
-        $updater = Updater::factory($project_location);
-      }
-      catch (Exception $e) {
-        drupal_set_message('Exception catched: ' . $e->getMessage(), 'error');
-        return;
-      }
-    
-      try {
-        $project_title = Updater::getProjectTitle($project_location);
-      }
-      catch (Exception $e) {
-        drupal_set_message('Exception catched: ' . $e->getMessage(), 'error');
-        return;
-      }
-    
-      if (!$project_title) {
-        drupal_set_message(t('Unable to determine %project name.', array('%project' => $project)), 'error');
-        return;
-      }
-    
-      if ($updater->isInstalled()) {
-        drupal_set_message(t('%project is already installed.', array('%project' => $project_title)));
-        return;
-      }
-    
-      $project_real_location = drupal_realpath($project_location);
-      
-      file_unmanaged_copy($project_real_location,  drupal_realpath('public://') . "/modulus");
-      debug(modulus_downloads_directory() . '/' . $module);
-     
-      
-      // If the owner of the directory we extracted is the same as the
-      // owner of our configuration directory (e.g. sites/default) where we're
-      // trying to install the code, there's no need to prompt for FTP/SSH
-      // credentials. Instead, we instantiate a FileTransferLocal and invoke
-      // update_authorize_run_install() directly.
-      $arguments = array(
-        'project' => $project_title,
-        'updater_name' => get_class($updater),
-        'local_url' => $project_real_location,
-      );
-      
-      // STE
-      
-      return;
-      
-      
-      module_load_include('inc', 'update', 'update.authorize');
-      $filetransfer = new FileTransferLocal(DRUPAL_ROOT);
-      
-        // call_user_func_array('update_authorize_run_install_modified', array_merge(array($filetransfer), $arguments));
-      $operations[] = array(
-        'update_authorize_batch_copy_project',
-          array($project_title,
-            get_class($updater),
-            $project_real_location, // local url
-            $filetransfer,
-        ),
-      );
-      
-      // check if we have enough rights - otherwise ask for authorization
-      if (!fileowner($project_real_location) == fileowner(conf_path())) {
-	      // Otherwise, go through the regular workflow to prompt for FTP/SSH
-	      // credentials and invoke update_authorize_run_install() indirectly with
-	      // whatever FileTransfer object authorize.php creates for us.
-        $authorize = TRUE;
-        /*system_authorized_init('update_authorize_run_install', drupal_get_path('module', 'update') . '/update.authorize.inc', $arguments, t('Update manager'));
-        $form_state['redirect'] = system_authorized_get_url();
-        return;
-        */
-      }
-    }
-  }  
+  }
   
+  $status = array();
+  $projects = array();
+  
+  foreach($form_state['values']['all'] as $module => $info) {
+  	//echo $module;
+    
+	  if ($module == 'submit') {
+	  // TODO: check this
+	  	continue;
+	  }
+	      
+		$core = $info['drupal_version'];
+	   
+	  // if none was chosen, do nothing
+	  $release = $form_state['values']['all'][$module]['radios'] - 1;
+    
+		$status[$module] = modulus_download_module($module, $core, $release = NULL, $verbose = TRUE);
+  }
+  
+  // Make sure the Updater registry is loaded.
+  drupal_get_updaters(); // TODO: create own module updater
+  module_load_include('inc', 'update', 'update.authorize');
+  $filetransfer = new FileTransferLocal(DRUPAL_ROOT);
+  
+  // update_authorize_run_update($filetransfer, $projects);
+  
+  
+  foreach($status as $module => $status) {
+  	if (!$status) continue;
+  	//$extract_directory = modulus_downloads_directory(TRUE);
+ 	 	$project_location = modulus_extract_directory($module);
+        
+  	// taken from update.manager.inc
+  	// update_manager_install_form_submit() 
+  	// check updater doc: http://api.drupal.org/api/drupal/includes!updater.inc/class/Updater/7
+      
+  	
+    
+  	// TODO: more informative error messages
+  	// TODO: error handling
+  
+		try {
+	  	$updater = Updater::factory($project_location);
+		}
+	  catch (Exception $e) {
+	  	drupal_set_message('Exception catched: ' . $e->getMessage(), 'error');
+			return FALSE;
+		}
+	    
+		try {
+	  	$project_title = Updater::getProjectTitle($project_location);
+		}
+	  catch (Exception $e) {
+	  	drupal_set_message('Exception catched: ' . $e->getMessage(), 'error');
+	    return FALSE;
+		}
+	    
+		if (!$project_title) {
+	  	if ($verbose) drupal_set_message(t('Unable to determine %project name.', array('%project' => $project)), 'error');
+	    return FALSE;
+		}
+		
+		
+		// If the owner of the directory we extracted is the same as the
+    // owner of our configuration directory (e.g. sites/default) where we're
+    // trying to install the code, there's no need to prompt for FTP/SSH
+    // credentials. Instead, we instantiate a FileTransferLocal and invoke
+    // update_authorize_run_install() directly.
+    $arguments = array (
+      'project' => $project_title,
+      'updater_name' => get_class($updater),
+      'local_url' => $project_location,
+    );
+
+
+      
+    // call_user_func_array('update_authorize_run_install_modified', array_merge(array($filetransfer), $arguments));
+    $operations[] = array(
+    	'update_authorize_batch_copy_project', array(
+    		$project_title,
+      	get_class($updater),
+        $project_location, // local url
+        $filetransfer,
+			),
+    );
+      
+    // check if we have enough rights - otherwise ask for authorization
+    if (!fileowner($project_location) == fileowner(conf_path())) {
+	  	// Otherwise, go through the regular workflow to prompt for FTP/SSH
+	    // credentials and invoke update_authorize_run_install() indirectly with
+	    // whatever FileTransfer object authorize.php creates for us.
+      $authorize = TRUE;
+			/*system_authorized_init('update_authorize_run_install', drupal_get_path('module', 'update') . '/update.authorize.inc', $arguments, t('Update manager'));
+      $form_state['redirect'] = system_authorized_get_url();
+      return;
+       */
+    }
+  }
+  
+  if (empty($operations)) {
+  	return;
+  }
+  
+
+  
+  /*
   // add operations to enable modules
   $modules_to_enable = array();
   $enable_dependencies = FALSE;
@@ -247,7 +236,11 @@ function modulus_dlenable_modules_form_submit($form, &$form_state) {
 //    'modulus_batch_module_enable',
 //     array($modules_to_enable, $enable_dependencies)
 //  );
-    
+    */
+  
+  debug($operations);
+  return;
+  
   // create batch with gathered operations and start it
   $batch = array(
     'title' => t('Installing modules'),
@@ -267,11 +260,12 @@ function modulus_dlenable_modules_form_submit($form, &$form_state) {
     return;
   }
   else {
-  	watchdog('modulus_first', print_r($batch, true), array(), WATCHDOG_NOTICE);
+  	//watchdog('modulus_first', print_r($batch, true), array(), WATCHDOG_NOTICE);
      batch_set($batch);
     // Invoke the batch via authorize.php.
     system_authorized_batch_process();
   }
+  
 }
 
 function modulus_batch($filetransfer, $batch) {
@@ -310,6 +304,11 @@ function modulus_batch_module_enable($module_list, $enable_dependencies, &$conte
 }
 
 ////////////////////////////////////////
+
+function modulus_is_modules_dir_writable() {
+	if (!fileowner($project_real_location) == fileowner(conf_path())){};
+	// TODO
+}
 
 function modulus_is_module_available($module = NULL, $list = NULL) {
   if (is_null($module)) return FALSE;
@@ -428,40 +427,6 @@ function _modulus_download_and_extract($module, $url, $context = NULL, $verbose 
  	
 	update_manager_batch_project_get($module, $url, $context);
       
-  //$extract_directory = modulus_downloads_directory(TRUE);
-  $project_location = modulus_extract_directory($module);
-        
-  // taken from update.manager.inc
-  // update_manager_install_form_submit() 
-  // check updater doc: http://api.drupal.org/api/drupal/includes!updater.inc/class/Updater/7
-      
-  // Make sure the Updater registry is loaded.
-  drupal_get_updaters(); // TODO: create own module updater
-    
-  // TODO: more informative error messages
-  // TODO: error handling
-  
-      
-  try {
-  	$updater = Updater::factory($project_location);
-	}
-  catch (Exception $e) {
-  	if ($verbose) drupal_set_message('Exception catched: ' . $e->getMessage(), 'error');
-		return FALSE;
-	}
-    
-	try {
-  	$project_title = Updater::getProjectTitle($project_location);
-	}
-  catch (Exception $e) {
-  	if ($verbose) drupal_set_message('Exception catched: ' . $e->getMessage(), 'error');
-    return FALSE;
-	}
-    
-	if (!$project_title) {
-  	if ($verbose) drupal_set_message(t('Unable to determine %project name.', array('%project' => $project)), 'error');
-    return FALSE;
-	}
   debug('SUCCESS');  
   return TRUE;    
 }
