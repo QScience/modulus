@@ -335,7 +335,7 @@ function modulus_build_dep_tree_remote($module, $core, $release = NULL, $deps = 
 	$current_deps = @$info['dependencies'];
 	if (!empty($current_deps)) {
 		foreach ($current_deps as $d) {
-			$deps[] = array($d => modulus_build_dep_tree_remote($d, $core, $release));
+			$deps[] = array($d => modulus_build_dep_tree($d, $core, $release));
 		}	
 	}
 	return $deps;
