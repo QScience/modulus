@@ -333,10 +333,6 @@ function modulus_module_state($module) {
 	return 'missing';
 }
 
-function modulus_dep_report($module, $core, $release) {
-	$dep_tree = modulus_build_dep_tree($module, $core, $release);
-}
-
 function modulus_build_dep_tree($module, $core, $release = NULL, $deps = array()) {
 	// TODO: how to find the current core?
 	
