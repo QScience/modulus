@@ -366,6 +366,11 @@ function modulus_download_module($module, $core, $release = NULL, $verbose = TRU
 
 }
 
+function modulus_extract_directory($module = NULL) {
+	$extract_directory = _update_manager_extract_directory();
+	return (is_null($module)) ? $extract_directory : $extract_directory . '/' . $module; 
+}
+
 function modulus_download_and_extract($module, $url, $context = NULL, $verbose = TRUE) {
 	if (is_null($context)) {
 		$context = array();
@@ -375,20 +380,18 @@ function modulus_download_and_extract($module, $url, $context = NULL, $verbose =
 	update_manager_batch_project_get($module, $url, $context);
       
   //$extract_directory = modulus_downloads_directory(TRUE);
-  $extract_directory = _update_manager_extract_directory();
-  $project_real_location = $extract_directory . '/' . $module;
+  $project_location = modulus_extract_directory($module);
         
   // taken from update.manager.inc
   // update_manager_install_form_submit() 
   // check updater doc: http://api.drupal.org/api/drupal/includes!updater.inc/class/Updater/7
-      
       
   // Make sure the Updater registry is loaded.
   drupal_get_updaters(); // TODO: create own module updater
     
   // TODO: more informative error messages
   // TODO: error handling
-  $project_location = $extract_directory . '/' . $module;
+  
       
   try {
   	$updater = Updater::factory($project_location);
@@ -414,9 +417,11 @@ function modulus_download_and_extract($module, $url, $context = NULL, $verbose =
   return TRUE;    
 }
 
-function modulus_move_project_to() {
-	file_unmanaged_copy($project_real_location,  drupal_realpath('public://') . "/modulus");
-  debug(modulus_downloads_directory() . '/' . $module);
+function modulus_move_project_to($project, $to) {
+	$project_location = modulus_extract_directory($project);
+	file_unmanaged_copy($project_location,  drupal_realpath('public://') . "/modulus");
+	file_unmanaged_copy($project_location,  $to);
+  //debug(modulus_downloads_directory() . '/' . $module);
 }
 
 
