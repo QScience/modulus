@@ -52,49 +52,35 @@ function modulus_page_form($form, $form_state, $modules, $core = '7.x', $options
     
     // ENABLE
     $modules_to_just_enable = array();
+    $modules_to_enable_after_dl = array();
 		$modules_to_dl = array();
     
     foreach ($form_state['values']['modules'] as $module => $info) {
-    	if ($info['download'] != 1 && $info['enable'] != 1) {
-    		continue;
-    	}
-    	
-    	else if ($info['enable'] == 1 && $info['download'] != 1) {
-    		$modules_to_just_enable[] = $module;
-    	}
-    	else if ($info['enable'] == 1 && $info['download'] == 1) {
-    		$modules_enable_after_dl[] = $module;
-    		$modules_to_dl = array(
+    	if ($info['download'] == 1) {
+    		$modules_to_dl[$module] = array(
       		'module' => $module, 
         	'drupal_version' => $info['drupal_version'],
-    		); 
+    		);
+    	}
+    	
+    	if ($info['enable'] == 1 && $info['download'] != 1) {
+    		$modules_to_just_enable[$module] = $module;
+    	}
+    	else if ($info['enable'] == 1) {
+    		$modules_to_enable_after_dl[$module] = $module; 
     	}
     	
     }
     
-    
-    $form_state2; // hack
-      $form = modulus_dlenable_modules_form(NULL, $form_state2, $todo, $modules_to_enable);
-          
+    if (count($modules_to_dl) > 0) {
+    	$form_state2; // hack
+      $form = modulus_dlenable_modules_form(NULL, $form_state2, $modules_to_dl, ($modules_to_just_enable + $modules_to_enable_after_dl));    
       return $form;
-    
-    // ENABLE
-    if ($form_state['values']['submit_en'] == $form_state['triggering_element']['#value']) {
-      if (module_enable($modules_to_enable, $form_state['values']['enable_dependencies']))
-        drupal_set_message('Modules have been enabled.');
-      else
-        drupal_set_message('An error occured. Please check the dependencies and if everything has been downloaded.');
     }
     
   }
   
-  // needed for formatting
-  $form['available'] = array(
-      '#markup' => t(''),
-  );
 	
-	$modules = is_array($modules) ? $modules : array($modules);
-  
   $modules_info = system_rebuild_module_data();
   
   $modules_list = module_list();

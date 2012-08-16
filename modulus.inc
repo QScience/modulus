@@ -164,18 +164,22 @@ function modulus_dlenable_modules_form_submit($form, &$form_state) {
   
 
   
-  /*
+  
   // add operations to enable modules
   $modules_to_enable = array();
   $enable_dependencies = FALSE;
   if (isset($form_state['values']['modules_to_enable'])) {
     foreach($form_state['values']['modules_to_enable'] as $key => $value) {
-      if($key != 'enable_dependencies')
-        $modules_to_enable[] = $form_state['values']['modules_to_enable'][$key];
+    	$modules_to_enable[] = $form_state['values']['modules_to_enable'][$key];
     }
-    $enable_dependencies = $form_state['values']['modules_to_enable']['enable_dependencies'];
+    
+		$operations[] = array(
+  		'modulus_batch_module_enable',
+  		array($modules_to_enable), 
+  	);
+    
   }
-  */
+  
   $operations[] = array(
   	'modulus_batch_redirect',
   	array('admin/modulus'), 
@@ -230,6 +234,14 @@ function modulus_batch_redirect($url = 'admin/modulus', &$context) {
 
   $context['finished'] = 1.0;
  	$context['results']['log']['Return'][] = array('message' =>  l('Click here to return.', $url), 'success' => 'Yuppie!');
+  return;
+}
+
+/**
+ * module_enable wrapper for batch
+ */
+function modulus_batch_module_enable($module_list, &$context) { 
+  module_enable($module_list);//, $enable_dependencies);
   return;
 }
 

@@ -15,9 +15,6 @@ window.onload = function(){
 					var tokens = name.split(']');
 					var module = tokens[0];
 					var action = tokens[1].substr(1,tokens[1].length-1);
-					console.log(module);
-					console.log(action);
-					console.log(tokens);
 					
 					if (action === 'enable') {
 						if (this.checked) {
