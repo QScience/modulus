@@ -100,8 +100,6 @@ function modulus_dlenable_modules_form_submit($form, &$form_state) {
    
   //update_authorize_run_update($filetransfer, $projects);
   
-  
-  
   foreach ($projects as $module) {
 
   	//$extract_directory = modulus_downloads_directory(TRUE);
@@ -143,18 +141,6 @@ function modulus_dlenable_modules_form_submit($form, &$form_state) {
         $filetransfer,
 			),
     );
-      
-    // check if we have enough rights - otherwise ask for authorization
-    if (!fileowner($real_project_location) == fileowner(conf_path())) {
-	  	// Otherwise, go through the regular workflow to prompt for FTP/SSH
-	    // credentials and invoke update_authorize_run_install() indirectly with
-	    // whatever FileTransfer object authorize.php creates for us.
-      $authorize = TRUE;
-			//system_authorized_init('update_authorize_run_install', drupal_get_path('module', 'update') . '/update.authorize.inc', $arguments, t('Update manager'));
-      //$form_state['redirect'] = system_authorized_get_url();
-      //return;
-       
-    }
   }
   
   
