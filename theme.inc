@@ -123,9 +123,34 @@
  * @TODO Doc.
  */
 function modulus_page($pid) {
-	debug(drupal_realpath('public://') . "/modulus");
+	$info = array();
+    
+ 	$info['Path'][] = t('Temporary download directory:');
+  $info['Path'][] = drupal_realpath(modulus_extract_directory());
+  $info['modules_system_dir'][] = t('System modules directory');
+  $info['modules_system_dir'][] = DRUPAL_ROOT . 'sites/all/modules';
+      
+  $directory = DRUPAL_ROOT . 'sites/all/modules';
+  
+  if (modulus_is_modules_dir_writable()) {
+  	$write_dir = t('sites/all/modules/ is writable. You will be able to copy downloaded modules here automatically. Important: this is NOT the recommended setting for production web sites.');
+  }
+  else {
+  	$write_dir = t('sites/all/modules/ is not writable. You will NOT be able to copy downloaded modules here automatically. Important: this is the recommended setting for production web sites.');
+  }
+   
+  $info['modules_system_dir_write'][] = t('Modules system write permissions');
+  $info['modules_system_dir_write'][] = $write_dir;
+   
+      
+
+  $out = '<h6>Info</h6>';
+  $out .= theme('table', array('rows' => $info));
   $form_state['build_info']['args'] = array($pid);
-  return drupal_render(drupal_build_form('modulus_page_form', $form_state));
+  
+  $out .= drupal_render(drupal_build_form('modulus_page_form', $form_state));
+  
+  return $out;
 }
 
 /*
@@ -145,7 +170,9 @@ function modulus_page_form($form, &$form_state, $pid) {
 
 
 function modulus_page_form($form, $form_state, $modules, $core = '7.x') {
-		
+
+	
+	
 	// check if this is the first time or if we are rebuilding the form
   if (!isset($form_state['values']['step'])) {
     $form_state['values']['step'] = 1;
@@ -302,27 +329,15 @@ function modulus_page_form($form, $form_state, $modules, $core = '7.x') {
   	'#markup' => ($not_available) ? t('Some modules are not available.') : t('All modules are available.'),
   );
     
-  $form['enable_dependencies'] = array(
-    '#type' => 'checkbox',
-    '#title' => 'Enable dependencies?',
-  );
+  //$form['enable_dependencies'] = array(
+  //  '#type' => 'checkbox',
+  //  '#title' => 'Enable dependencies?',
+  //);
   
   // buttons
   $form['submit_dl'] = array(
     '#type' => 'submit',
-    '#value' => t('Download'),
-    '#submit' => array('modulus_page_submit'),
-  );
-  
-  $form['submit_en'] = array(
-    '#type' => 'submit',
-    '#value' => t('Enable'),
-    '#submit' => array('modulus_page_submit'),
-  );
-  
-  $form['submit_dlen'] = array(
-    '#type' => 'submit',
-    '#value' => t('Download & Enable'),
+    '#value' => t('Go!'),
     '#submit' => array('modulus_page_submit'),
   );
   

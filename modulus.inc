@@ -286,9 +286,15 @@ function modulus_releases_form($module, $core, &$form = array()) {
 }
 
 
-function modulus_is_modules_dir_writable() {
-	if (!fileowner($project_real_location) == fileowner(conf_path())){};
-	// TODO
+function modulus_is_modules_dir_writable($dir = 'sites/all/modules/') {
+	if (fileowner(modulus_extract_directory()) === fileowner($dir)) {
+		return TRUE;
+	}
+	if (file_prepare_directory($dir)) {
+		return TRUE;
+	}
+	
+	return FALSE;
 }
 
 function modulus_is_module_available($module = NULL, $list = NULL) {
