@@ -23,54 +23,7 @@ function modulus_dlenable_modules_form($form, &$form_state, $modules, $modules_t
     // get release history
     $drupal_version = $module['drupal_version'];
     $module = $module['module'];
-    
-    $form['all'][$module] = array (
-         '#type' => 'fieldset',
-         '#title' => $module,
-         '#collapsible' => TRUE,
-         '#collapsed' => FALSE, // TODO set to TRUE after debugging
-    );
-    
-    $xml = modulus_get_release_history_xml($module, $drupal_version);
-    
-    if($xml == NULL) {
-      $form['all'][$module]['error'] = array(
-        '#markup' => 'An error occured while retrieving the release history. ' .
-                     'Check the error messages for more information.',
-      );
-      continue;
-    }
-    // TODO: choose optimal solution
-    
-    // form for user
-
-    // extract releases
-    // Example for restricting:
-    //  $releases = $xml->xpath("/project/releases/release[status='published']");
-    $releases = $xml->xpath("/project/releases/release");
-    $options = array('none');
-    foreach($releases as $release) {
-      // show information about release
-      $opt =  $release->name;
-      $opt .= ', Version: ' .  $release->version;
-      $opt .= ', Version Extra: ' .  $release->version_extra;
-      $opt .= ', Status: ' . $release->status;
-      $opt .= ', ' . l('Release link',  $release->release_link);
-      array_push($options, $opt);
-      
-      // show radios
-      $form['all'][$module]['radios'] = array(
-        '#type' => 'radios',
-        '#title' => t('Choose the release you want to install' . $module),
-        '#options' => $options,
-      );
-      
-      // save requested drupal version
-      $form['all'][$module]['drupal_version'] = array(
-        '#type' => 'value',
-        '#value' => $drupal_version,
-      );
-    }
+    modulus_releases_form($module, $drupal_version, $form['all']);
   }
 
   if(!empty($modules_to_enable)) {
@@ -228,8 +181,10 @@ function modulus_dlenable_modules_form_submit($form, &$form_state) {
     $enable_dependencies = $form_state['values']['modules_to_enable']['enable_dependencies'];
   }
   */
-  $operations[] = array('modulus_batch_module_enable');
-    
+  $operations[] = array(
+  	'modulus_batch_redirect',
+  	array('admin/modulus'), 
+  );
   
   //debug($operations);
   //return;
@@ -238,10 +193,10 @@ function modulus_dlenable_modules_form_submit($form, &$form_state) {
   $batch = array(
     'title' => t('Installing modules'),
     'init_message' => t('Preparing to install'),
+  	//'progress_message' => t('Processed @current out of @total.', array('@total' => (count($operations)-1))),
     'operations' => $operations,
     'finished' => 'update_authorize_install_batch_finished',
     'file' =>  drupal_get_path('module', 'modulus') . '/modulus.module',
-    //'file' => drupal_get_path('module', 'update') . '/update.authorize.inc',
   );
 
 
@@ -276,16 +231,60 @@ function modulus_batch($filetransfer, $batch) {
 /**
  * module_enable wrapper for batch
  */
-function modulus_batch_module_enable($module_list, $enable_dependencies, &$context) {
+function modulus_batch_redirect($url = 'admin/modulus', &$context) {
 
   $context['finished'] = 1.0;
-  //include('')
-  module_enable($module_list);//, $enable_dependencies);
- 	$context['results']['log']['Return'][] = array('message' =>  l('Click here to return.', 'admin/patterns/check/' . variable_get('patterns_pid', 0)), 'success' => 'Yuppie!');
+ 	$context['results']['log']['Return'][] = array('message' =>  l('Click here to return.', $url), 'success' => 'Yuppie!');
   return;
 }
 
 ////////////////////////////////////////
+
+
+function modulus_releases_form($module, $core, &$form = array()) {
+
+	$form[$module] = array (
+  	'#type' => 'fieldset',
+    '#title' => $module,
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE, // TODO set to TRUE after debugging
+ 	);
+	
+	$xml = modulus_get_release_history_xml($module, $core);
+    
+  if (!$xml) {
+  	$form[$module]['missing'] = array (
+  		'#markup' => t('An error occurred while retrieving the releases information'),
+  	);
+  	return;
+  }
+  
+    $releases = $xml->xpath("/project/releases/release");
+    $options = array('none');
+    foreach ($releases as $release) {
+      // show information about release
+      $opt =  $release->name;
+      $opt .= ', Version: ' .  $release->version;
+      $opt .= ', Version Extra: ' .  $release->version_extra;
+      $opt .= ', Status: ' . $release->status;
+      $opt .= ', ' . l('Release link',  $release->release_link);
+      array_push($options, $opt);
+      
+      // show radios
+      $form[$module]['radios'] = array(
+        '#type' => 'radios',
+        '#title' => t('Choose the release you want to install: ' . $module),
+        '#options' => $options,
+      );
+      
+      // save requested drupal version
+      $form[$module]['drupal_version'] = array(
+        '#type' => 'value',
+        '#value' => $core,
+      );
+    }
+}
+
 
 function modulus_is_modules_dir_writable() {
 	if (!fileowner($project_real_location) == fileowner(conf_path())){};
