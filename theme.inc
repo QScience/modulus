@@ -77,7 +77,15 @@ function modulus_page_form($form, $form_state, $modules, $core = '7.x', $options
       $form = modulus_dlenable_modules_form(NULL, $form_state2, $modules_to_dl, ($modules_to_just_enable + $modules_to_enable_after_dl));    
       return $form;
     }
-    
+    else if (count($modules_to_just_enable) > 0) {
+    	 $result = module_enable($modules_to_just_enable);
+    	 if ($result) {
+    	 		drupal_set_message(t('All modules were succesfully enabled'));
+    	 }
+    	 else {
+    	 		drupal_set_message(t('One or more modules could not be enabled'));
+    	 }
+    }
   }
   
 	
