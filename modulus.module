@@ -8,6 +8,7 @@ include_once 'includes/module.inc';
 
 module_load_include('inc', 'modulus', 'theme');
 module_load_include('inc', 'modulus', 'modulus');
+module_load_include('inc', 'modulus', 'util');
 
 
 /**

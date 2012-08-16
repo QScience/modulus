@@ -5,7 +5,7 @@
  * 
  * $modules is an array of tuples (module name, drupal version)
  */
-function modulus_dlenable_modules_form($form, &$form_state, $modules, $modules_to_enable, $enable_dependencies) {  
+function modulus_dlenable_modules_form($form, &$form_state, $modules, $modules_to_enable) {  
 
  	
 	$form['#tree'] = TRUE;
@@ -43,11 +43,6 @@ function modulus_dlenable_modules_form($form, &$form_state, $modules, $modules_t
 
     $form['modules_to_enable']['list'] = array(
       '#markup' => implode('<br>', $modules_to_enable)
-    );
-
-    $form['modules_to_enable']['enable_dependencies'] = array(
-      '#type' => 'value',
-      '#value' => $enable_dependencies,
     );
   }
   
@@ -286,39 +281,6 @@ function modulus_releases_form($module, $core, &$form = array()) {
 }
 
 
-function modulus_is_modules_dir_writable($dir = 'sites/all/modules/') {
-	if (fileowner(modulus_extract_directory()) === fileowner($dir)) {
-		return TRUE;
-	}
-	if (file_prepare_directory($dir)) {
-		return TRUE;
-	}
-	
-	return FALSE;
-}
-
-function modulus_is_module_available($module = NULL, $list = NULL) {
-  if (is_null($module)) return FALSE;
-  $modules = (is_null($list)) ? system_rebuild_module_data() : $list;
-  return (isset($modules[$module])) ? TRUE : FALSE;
-}
-
-function modulus_is_module_enabled($module = NULL, $list = NULL) {
-  if (is_null($module)) return FALSE;
-  $modules = (is_null($list)) ? module_list() : $list;
-  return isset($modules[$module]) ? TRUE : FALSE;
-}
-
-function modulus_module_state($module) {
-	if (modulus_is_module_enabled($module)) {
-		return 'enabled';
-	}
-	if (modulus_is_module_available($module)) {
-		return 'available';
-	}
-	return 'missing';
-}
-
 function modulus_build_dep_tree($module, $core, $release = NULL, $deps = array()) {
 	// TODO: how to find the current core?
 	
@@ -353,26 +315,6 @@ function modulus_build_dep_tree_remote($module, $core, $release = NULL, $deps = 
 	return $deps;
 }
 
-
-function modulus_get_info_from_extracted_project($module) {
-	$dir = modulus_extract_directory($module);
-  return drupal_parse_info_file($dir . '/' . $module. '.info');
-}
-
-function _modulus_find_most_recent_published_release($xml) {
-	$releases = $xml->xpath("/project/releases/release");
-	$found = FALSE;
-	foreach($releases as $release) {
-		if (!$release->xpath('status') === 'published') {
-			continue;
-		}
-		if (!$found || $release->xpath('date') > $found->xpath('date')) {
-			$found = $release;
-		}
-	}
-	return $found;
-}
-
 function modulus_download_module($module, $core, $release = NULL, $verbose = TRUE) {
 
 	$xml = modulus_get_release_history_xml($module, $core);
@@ -399,11 +341,6 @@ function modulus_download_module($module, $core, $release = NULL, $verbose = TRU
  	
   return _modulus_download_and_extract($module, $url);
 
-}
-
-function modulus_extract_directory($module = NULL) {
-	$extract_directory = _update_manager_extract_directory();
-	return (is_null($module)) ? $extract_directory : $extract_directory . '/' . $module; 
 }
 
 function _modulus_download_and_extract($module, $url, $context = NULL, $verbose = TRUE) {
